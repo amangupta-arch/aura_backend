@@ -19,19 +19,23 @@ const SLOT_LABELS = {
 const MAX_EDGE = 1600;
 const JPEG_QUALITY = 0.85;
 
+function newId() {
+  return (crypto.randomUUID && crypto.randomUUID()) ||
+    Math.random().toString(36).slice(2) + Date.now().toString(36);
+}
+
 function getOrCreateUserId() {
   let id = localStorage.getItem('aura_user_id');
   if (!id) {
-    id =
-      (crypto.randomUUID && crypto.randomUUID()) ||
-      Math.random().toString(36).slice(2) + Date.now().toString(36);
+    id = newId();
     localStorage.setItem('aura_user_id', id);
   }
   return id;
 }
 
-const userId = getOrCreateUserId();
-document.getElementById('user-id').textContent = userId;
+let userId = getOrCreateUserId();
+const userIdEl = document.getElementById('user-id');
+userIdEl.textContent = userId;
 
 const demoBanner = document.getElementById('demo-banner');
 fetch('/api/status')
@@ -47,8 +51,9 @@ fetch('/api/status')
 
 const form = document.getElementById('upload-form');
 const statusEl = document.getElementById('status');
-const resultsEl = document.getElementById('results');
 const submitBtn = document.getElementById('submit-btn');
+const modal = document.getElementById('success-modal');
+const newUploadBtn = document.getElementById('new-upload-btn');
 
 form.querySelectorAll('input[type="file"]').forEach((input) => {
   input.addEventListener('change', () => {
@@ -72,21 +77,40 @@ function setStatus(kind, message) {
   statusEl.textContent = message;
 }
 
-function renderResults(row) {
-  resultsEl.hidden = false;
-  const items = SLOTS.map((slot) => {
-    const link = row[slot];
-    const linkHtml = link
-      ? `<a href="${link}" target="_blank" rel="noreferrer">${link}</a>`
-      : '<span style="color:#6b7588">not uploaded</span>';
-    return `<li><span>${SLOT_LABELS[slot]}</span>${linkHtml}</li>`;
-  }).join('');
-
-  resultsEl.innerHTML = `
-    <h3>Saved for user <code>${row.user_id}</code></h3>
-    <ul>${items}</ul>
-  `;
+function clearStatus() {
+  statusEl.hidden = true;
+  statusEl.textContent = '';
+  statusEl.className = 'status';
 }
+
+function showSuccessModal() {
+  modal.hidden = false;
+  modal.setAttribute('aria-hidden', 'false');
+}
+
+function hideSuccessModal() {
+  modal.hidden = true;
+  modal.setAttribute('aria-hidden', 'true');
+}
+
+function resetForm() {
+  form.reset();
+  form.querySelectorAll('.slot').forEach((slot) => {
+    slot.classList.remove('has-file');
+    const preview = slot.querySelector('.preview');
+    if (preview) preview.style.backgroundImage = '';
+  });
+  clearStatus();
+  userId = newId();
+  localStorage.setItem('aura_user_id', userId);
+  userIdEl.textContent = userId;
+}
+
+newUploadBtn.addEventListener('click', () => {
+  hideSuccessModal();
+  resetForm();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+});
 
 function loadImage(file) {
   return new Promise((resolve, reject) => {
@@ -96,7 +120,7 @@ function loadImage(file) {
       URL.revokeObjectURL(url);
       resolve(img);
     };
-    img.onerror = (e) => {
+    img.onerror = () => {
       URL.revokeObjectURL(url);
       reject(new Error('Could not read image'));
     };
@@ -167,17 +191,16 @@ form.addEventListener('submit', async (event) => {
   }
 
   submitBtn.disabled = true;
-  let lastResult = null;
 
   try {
     for (let i = 0; i < SLOTS.length; i++) {
       const slot = SLOTS[i];
       const input = form.querySelector(`input[name="${slot}"]`);
       setStatus('', `Uploading ${SLOT_LABELS[slot]} (${i + 1}/${SLOTS.length})…`);
-      lastResult = await uploadOne(slot, input.files[0]);
+      await uploadOne(slot, input.files[0]);
     }
-    setStatus('success', 'All six images uploaded and linked.');
-    if (lastResult) renderResults(lastResult.links);
+    clearStatus();
+    showSuccessModal();
   } catch (err) {
     setStatus('error', err.message);
   } finally {

@@ -13,8 +13,7 @@
         <p class="sub">
           Tap a slot on mobile to open the camera and capture the photo
           (on desktop it opens the file picker). Max 4&nbsp;MB per image.
-          Files go to our Google Drive and the six links get saved against
-          your anonymous ID.
+          Your six photos are saved against your anonymous ID.
         </p>
         <div id="demo-banner" class="banner" hidden></div>
       </header>
@@ -74,8 +73,16 @@
       </form>
 
       <div id="status" class="status" hidden></div>
-      <div id="results" class="results" hidden></div>
     </main>
+
+    <div id="success-modal" class="modal" hidden aria-hidden="true" role="dialog" aria-labelledby="success-title">
+      <div class="modal-card">
+        <div class="modal-check" aria-hidden="true">&#10003;</div>
+        <h2 id="success-title">Upload successful</h2>
+        <p>Your six photos have been saved.</p>
+        <button id="new-upload-btn" type="button">NEW UPLOAD</button>
+      </div>
+    </div>
 
     <script src="/app.js"></script>
   </body>
