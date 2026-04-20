@@ -11,8 +11,9 @@
       <header>
         <h1>Upload your photos</h1>
         <p class="sub">
-          Drop one image into each slot below (max 4&nbsp;MB each on Vercel).
-          Your files go to our Google Drive and the six links get saved against
+          Tap a slot on mobile to open the camera and capture the photo
+          (on desktop it opens the file picker). Max 4&nbsp;MB per image.
+          Files go to our Google Drive and the six links get saved against
           your anonymous ID.
         </p>
         <div id="demo-banner" class="banner" hidden></div>
@@ -25,17 +26,17 @@
             <div class="slots">
               <label class="slot">
                 <span class="slot-title">Front face</span>
-                <input type="file" name="front_face" accept="image/*" required />
+                <input type="file" name="front_face" accept="image/*" capture="user" required />
                 <span class="preview"></span>
               </label>
               <label class="slot">
                 <span class="slot-title">Left face</span>
-                <input type="file" name="left_face" accept="image/*" required />
+                <input type="file" name="left_face" accept="image/*" capture="user" required />
                 <span class="preview"></span>
               </label>
               <label class="slot">
                 <span class="slot-title">Right face</span>
-                <input type="file" name="right_face" accept="image/*" required />
+                <input type="file" name="right_face" accept="image/*" capture="user" required />
                 <span class="preview"></span>
               </label>
             </div>
@@ -46,17 +47,17 @@
             <div class="slots">
               <label class="slot">
                 <span class="slot-title">Front body</span>
-                <input type="file" name="front_body" accept="image/*" required />
+                <input type="file" name="front_body" accept="image/*" capture="environment" required />
                 <span class="preview"></span>
               </label>
               <label class="slot">
                 <span class="slot-title">Left body</span>
-                <input type="file" name="left_body" accept="image/*" required />
+                <input type="file" name="left_body" accept="image/*" capture="environment" required />
                 <span class="preview"></span>
               </label>
               <label class="slot">
                 <span class="slot-title">Right body</span>
-                <input type="file" name="right_body" accept="image/*" required />
+                <input type="file" name="right_body" accept="image/*" capture="environment" required />
                 <span class="preview"></span>
               </label>
             </div>
