@@ -1,7 +1,7 @@
-const { isConfigured } = require('../lib/drive');
+const { isConfigured } = require('../lib/supabase');
 
 module.exports = function handler(req, res) {
   res.status(200).json({
-    drive_configured: isConfigured(),
+    storage_configured: isConfigured(),
   });
 };

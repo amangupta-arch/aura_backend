@@ -3,7 +3,7 @@ const path = require('path');
 
 const { SLOTS } = require('../lib/slots');
 const { parseMultipart } = require('../lib/multipart');
-const { uploadBufferToDrive, isConfigured } = require('../lib/drive');
+const { isConfigured, uploadBuffer } = require('../lib/supabase');
 const { upsertUserImages } = require('../lib/store');
 
 module.exports.config = { api: { bodyParser: false } };
@@ -23,40 +23,27 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: 'No images were provided.' });
     }
 
-    const driveConfigured = isConfigured();
-    const links = {};
-    const warnings = [];
+    if (!isConfigured()) {
+      return res.status(503).json({
+        error:
+          'Supabase is not configured on the server. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.',
+      });
+    }
 
+    const links = {};
     for (const slot of present) {
       const file = files[slot];
-      const ext = path.extname(file.filename || '') || '';
-      const name = `${userId}__${slot}${ext}`;
-
-      if (driveConfigured) {
-        links[slot] = await uploadBufferToDrive({
-          buffer: file.buffer,
-          mimeType: file.mimeType,
-          name,
-        });
-      } else {
-        links[slot] =
-          `https://demo.invalid/not-configured/${encodeURIComponent(userId)}/${slot}`;
-      }
+      const ext = (path.extname(file.filename || '') || '.jpg').toLowerCase();
+      const storagePath = `${userId}/${slot}${ext}`;
+      links[slot] = await uploadBuffer({
+        buffer: file.buffer,
+        mimeType: file.mimeType,
+        path: storagePath,
+      });
     }
 
-    if (!driveConfigured) {
-      warnings.push(
-        'Google Drive is not configured. Set GOOGLE_SERVICE_ACCOUNT_JSON and GOOGLE_DRIVE_FOLDER_ID in your Vercel project to enable real uploads.'
-      );
-    }
-
-    const row = upsertUserImages(userId, links);
-    return res.status(200).json({
-      user_id: userId,
-      links: row,
-      demo_mode: !driveConfigured,
-      warnings,
-    });
+    const row = await upsertUserImages(userId, links);
+    return res.status(200).json({ user_id: userId, links: row });
   } catch (err) {
     console.error('Upload failed:', err);
     const status = err.statusCode || 500;

@@ -37,10 +37,10 @@ const demoBanner = document.getElementById('demo-banner');
 fetch('/api/status')
   .then((r) => r.json())
   .then((s) => {
-    if (!s.drive_configured) {
+    if (!s.storage_configured) {
       demoBanner.hidden = false;
       demoBanner.textContent =
-        'Demo mode: Google Drive is not configured on the server. Uploads will return placeholder links. Set GOOGLE_SERVICE_ACCOUNT_JSON and GOOGLE_DRIVE_FOLDER_ID in Vercel to enable real uploads.';
+        'Server is not configured: set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in Vercel to enable uploads.';
     }
   })
   .catch(() => {});

@@ -1,14 +1,14 @@
 {
   "name": "aura_backend",
   "version": "1.0.0",
-  "description": "Upload 6 body/face photos to Google Drive and track links per anonymous user.",
+  "description": "Upload 6 body/face photos to Supabase Storage and track links per anonymous user.",
   "private": true,
   "scripts": {
     "dev": "vercel dev",
     "deploy": "vercel deploy --prod"
   },
   "dependencies": {
-    "busboy": "^1.6.0",
-    "googleapis": "^144.0.0"
+    "@supabase/supabase-js": "^2.45.4",
+    "busboy": "^1.6.0"
   }
 }

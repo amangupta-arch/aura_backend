@@ -2,75 +2,66 @@
 
 A no-login web app that lets anyone upload six photos — **front face, left
 face, right face, front body, left body, right body** — stores each one in
-a shared Google Drive folder, and saves the six resulting share links in
-six columns keyed by a browser-generated anonymous user ID.
+Supabase Storage, and saves the six resulting public URLs in six columns
+keyed by a browser-generated anonymous user ID.
 
 ## How it works
 
 1. The browser creates a UUID on first visit and keeps it in
    `localStorage` (`aura_user_id`). No sign-up, no login.
-2. The user picks one image per slot and submits the form.
-3. A Vercel serverless function parses the multipart upload with `busboy`,
-   streams each file to Google Drive via a service account, sets
-   "anyone with link" reader permission, then upserts the six
-   `webViewLink` URLs for that user ID.
-4. Re-submitting with the same user ID only updates the slots that were
-   re-uploaded — the other links stay intact.
+2. The page downscales each picked photo in a canvas (max 1600 px edge,
+   JPEG 0.85) and POSTs each slot as its own request (one at a time) so
+   no single payload exceeds Vercel's 4.5 MB body limit.
+3. Each Vercel serverless call parses the upload with `busboy`, pushes
+   the bytes into the `aura-backend-photos` bucket at
+   `<user_id>/<slot>.jpg`, and upserts the public URL into the
+   `public.photo_uploads` row for that user (six columns: `front_face`,
+   `left_face`, `right_face`, `front_body`, `left_body`, `right_body`).
+4. Re-uploading a slot overwrites the file and updates only that column.
 
 ## Stack
 
 - Vercel serverless Node.js functions (`api/*.js`)
 - `busboy` for multipart form parsing
-- `googleapis` for Drive uploads
-- JSON file in `/tmp` as the `user_id → 6 links` store (ephemeral per Lambda
-  container — easy to swap for Postgres/Supabase/Vercel KV later)
-
-## Project layout
-
-```
-.
-├── api/
-│   ├── upload.js          # POST /api/upload
-│   ├── user/[id].js       # GET  /api/user/:id
-│   └── status.js          # GET  /api/status (tells the UI if Drive is configured)
-├── lib/
-│   ├── drive.js           # Google Drive service-account upload
-│   ├── multipart.js       # busboy-based form parsing
-│   ├── slots.js           # canonical slot names
-│   └── store.js           # JSON file store
-├── public/                # static frontend served at /
-│   ├── index.html
-│   ├── app.js
-│   └── styles.css
-├── vercel.json
-└── package.json
-```
+- `@supabase/supabase-js` (service-role key) for Storage + Postgres
+- Supabase Storage bucket `aura-backend-photos` (public read)
+- Supabase table `public.photo_uploads` (RLS on, bypassed by service role)
 
 ## Environment variables
 
-| Variable                      | Required | Description                                                   |
-| ----------------------------- | -------- | ------------------------------------------------------------- |
-| `GOOGLE_SERVICE_ACCOUNT_JSON` | yes      | The full service-account key JSON as a single string.         |
-| `GOOGLE_DRIVE_FOLDER_ID`      | yes      | Target Drive folder ID (shared with the service account).     |
-| `AURA_STORE_FILE`             | no       | Override the JSON store location (default `/tmp/aura-store.json`). |
+| Variable                    | Required | Description                                              |
+| --------------------------- | -------- | -------------------------------------------------------- |
+| `SUPABASE_URL`              | yes      | e.g. `https://<ref>.supabase.co`                         |
+| `SUPABASE_SERVICE_ROLE_KEY` | yes      | Service-role key (Supabase → Settings → API).            |
+| `SUPABASE_BUCKET`           | no       | Override bucket name (default `aura-backend-photos`).    |
 
-Without the two Google vars the app runs in **demo mode**: the UI still
-works end-to-end, but `/api/upload` returns placeholder URLs and shows a
-banner at the top of the page.
+Without the two Supabase vars the app still loads, but `/api/upload`
+returns 503 and the page shows a configuration banner.
 
-## Setup (Google side)
+## Vercel setup
 
-1. Go to <https://console.cloud.google.com/>, select/create a project.
-2. Enable the **Google Drive API**.
-3. Create a **service account** and download its JSON key.
-4. Create a folder in Google Drive, click **Share**, and add the service
-   account's email (`…@…iam.gserviceaccount.com`) as **Editor**.
-5. Copy the folder ID from its URL
-   (`https://drive.google.com/drive/folders/<FOLDER_ID>`).
-6. In Vercel → Project → Settings → Environment Variables, add:
-   - `GOOGLE_SERVICE_ACCOUNT_JSON` = the entire key JSON, pasted as one value
-   - `GOOGLE_DRIVE_FOLDER_ID` = `<FOLDER_ID>`
-7. Redeploy (or push a commit) so the new env vars are picked up.
+1. In Vercel → `aura-backend` → **Settings → Environment Variables**, add
+   `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` (values from your
+   Supabase project's Settings → API page).
+2. Redeploy (or push any commit) so the new vars are picked up.
+
+## Database schema
+
+```sql
+CREATE TABLE public.photo_uploads (
+  user_id    text PRIMARY KEY,
+  front_face text,
+  left_face  text,
+  right_face text,
+  front_body text,
+  left_body  text,
+  right_body text,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+```
+
+The storage bucket `aura-backend-photos` is created alongside the table.
 
 ## Local development
 
@@ -85,8 +76,7 @@ Put the same env vars in a `.env.local` file to test real uploads locally.
 
 ### `POST /api/upload`
 
-`multipart/form-data` with any subset of these file fields, capped at
-~4 MB each (Vercel request-body limit):
+`multipart/form-data` with any subset of these file fields (≤4.5 MB each):
 
 `front_face`, `left_face`, `right_face`, `front_body`, `left_body`, `right_body`
 
@@ -97,16 +87,14 @@ Response:
 ```json
 {
   "user_id": "…",
-  "demo_mode": false,
-  "warnings": [],
   "links": {
-    "user_id":   "…",
-    "front_face": "https://drive.google.com/…",
-    "left_face":  "https://drive.google.com/…",
-    "right_face": "https://drive.google.com/…",
-    "front_body": "https://drive.google.com/…",
-    "left_body":  "https://drive.google.com/…",
-    "right_body": "https://drive.google.com/…",
+    "user_id":    "…",
+    "front_face": "https://<ref>.supabase.co/storage/v1/object/public/aura-backend-photos/…",
+    "left_face":  "…",
+    "right_face": "…",
+    "front_body": "…",
+    "left_body":  "…",
+    "right_body": "…",
     "created_at": "…",
     "updated_at": "…"
   }
@@ -119,5 +107,5 @@ Returns the stored row for that user ID (404 if unknown).
 
 ### `GET /api/status`
 
-Returns `{ "drive_configured": true|false }` — used by the frontend to
-show the demo-mode banner.
+Returns `{ "storage_configured": true|false }` — used by the frontend to
+show a configuration banner when the env vars are missing.
