@@ -30,6 +30,18 @@ function getOrCreateUserId() {
 const userId = getOrCreateUserId();
 document.getElementById('user-id').textContent = userId;
 
+const demoBanner = document.getElementById('demo-banner');
+fetch('/api/status')
+  .then((r) => r.json())
+  .then((s) => {
+    if (!s.drive_configured) {
+      demoBanner.hidden = false;
+      demoBanner.textContent =
+        'Demo mode: Google Drive is not configured on the server. Uploads will return placeholder links. Set GOOGLE_SERVICE_ACCOUNT_JSON and GOOGLE_DRIVE_FOLDER_ID in Vercel to enable real uploads.';
+    }
+  })
+  .catch(() => {});
+
 const form = document.getElementById('upload-form');
 const statusEl = document.getElementById('status');
 const resultsEl = document.getElementById('results');

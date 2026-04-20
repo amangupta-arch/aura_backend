@@ -1,17 +1,14 @@
 {
   "name": "aura_backend",
   "version": "1.0.0",
-  "description": "Upload 6 body/face images to Google Drive and track links per user.",
-  "main": "server.js",
+  "description": "Upload 6 body/face photos to Google Drive and track links per anonymous user.",
+  "private": true,
   "scripts": {
-    "start": "node server.js",
-    "dev": "node server.js"
+    "dev": "vercel dev",
+    "deploy": "vercel deploy --prod"
   },
   "dependencies": {
-    "better-sqlite3": "^11.3.0",
-    "dotenv": "^16.4.5",
-    "express": "^4.21.0",
-    "googleapis": "^144.0.0",
-    "multer": "^1.4.5-lts.1"
+    "busboy": "^1.6.0",
+    "googleapis": "^144.0.0"
   }
 }
